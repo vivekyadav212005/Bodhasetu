@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+motor
+pymongo
+qdrant-client
+boto3
+pymupdf
+pillow
+pdf2image
+pytesseract
+openpyxl
+pandas
+sentence-transformers
+python-dotenv
+tqdm
