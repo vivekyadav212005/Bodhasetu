@@ -1,0 +1,5 @@
+imapclient 
+pyzmail36
+flask
+flask-cors
+react
