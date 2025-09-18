@@ -1,0 +1,26 @@
+# 1. Clone repo
+git clone git@github.com:<your-username>/Bodhasetu.git
+cd Bodhasetu
+
+# 2. Setup virtual environment
+python3 -m venv myenv
+source myenv/bin/activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Create .env file at project root
+
+# 5. Start MongoDB (Homebrew on macOS)
+brew services start mongodb-community@6.0
+
+# 6. Start Qdrant via Docker
+docker run -p 6333:6333 qdrant/qdrant
+
+# 7. Run FastAPI server
+uvicorn backend.main:app --reload
+
+# 8. (Optional) Test upload
+curl -X POST "http://127.0.0.1:8000/upload" \
+     -F "file=@/path/to/test.pdf" \
+     -F "department=Engineering"
