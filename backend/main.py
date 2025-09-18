@@ -1,9 +1,14 @@
 # backend/main.py
 from fastapi import FastAPI, UploadFile, File, Form
-import asyncio
 from backend.worker import process_bytes
+from backend.db import ensure_indexes
+from backend.qdrant_upsert import search_similar
 
 app = FastAPI(title="Bodhasetu Prototype API")
+
+@app.on_event("startup")
+async def on_start():
+    await ensure_indexes()
 
 @app.post("/upload")
 async def upload(file: UploadFile = File(...), department: str = Form("General")):
@@ -14,3 +19,7 @@ async def upload(file: UploadFile = File(...), department: str = Form("General")
 @app.get("/")
 def root():
     return {"message": "Bodhasetu prototype running"}
+
+@app.get("/search")
+def search(q: str, k: int = 5):
+    return {"results": search_similar(q, top_k=k)}

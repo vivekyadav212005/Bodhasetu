@@ -3,6 +3,7 @@ from qdrant_client.http import models as rest_models
 from uuid import uuid4
 import numpy as np
 from backend.qdrant_conn import qdrant_client, COLLECTION_NAME
+from backend.embeddings.embedder import embed_texts
 
 def ensure_collection(dim: int):
     try:
@@ -37,3 +38,18 @@ def upsert_chunks_vectors(doc_id: str, chunk_models: list, vectors: np.ndarray):
             )
         )
     qdrant_client.upsert(collection_name=COLLECTION_NAME, points=points)
+
+def search_similar(query: str, top_k: int = 5):
+    vec = embed_texts([query])[0]
+    res = qdrant_client.search(
+        collection_name=COLLECTION_NAME,
+        query_vector=vec.tolist(),
+        limit=top_k,
+        with_payload=True
+    )
+    return [
+        {
+            "score": r.score,
+            "payload": r.payload
+        } for r in res
+    ]

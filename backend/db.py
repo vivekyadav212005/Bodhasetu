@@ -16,10 +16,23 @@ async def insert_document(collection: str, data: dict) -> str:
     res = await db[collection].insert_one(data)
     return str(res.inserted_id)
 
+async def insert_many(collection: str, documents: list) -> list:
+    """Insert many documents efficiently and return inserted ids."""
+    if not documents:
+        return []
+    res = await db[collection].insert_many(documents)
+    return [str(_id) for _id in res.inserted_ids]
+
 
 async def update_document(collection: str, id_str: str, updates: dict, upsert: bool = False):
     """Update document by _id (string IDs supported)."""
     await db[collection].update_one({"_id": id_str}, {"$set": updates}, upsert=upsert)
+
+async def ensure_indexes():
+    await db["documents"].create_index("department")
+    await db["documents"].create_index("created_at")
+    await db["chunks"].create_index([("doc_id", 1), ("chunk_index", 1)], unique=True)
+    await db["chunks"].create_index("page_number")
 
 
 async def get_document(collection: str, id_str: str) -> dict:

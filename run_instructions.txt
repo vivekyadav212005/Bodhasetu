@@ -10,12 +10,22 @@ source myenv/bin/activate
 pip install -r requirements.txt
 
 # 4. Create .env file at project root
+# Example .env
+# MONGO_URI=mongodb://localhost:27017
+# MONGO_DBNAME=bodhasetu
+# QDRANT_URL=http://localhost:6333
+# EMBED_MODEL=all-MiniLM-L6-v2
+# TESSERACT_CMD=/usr/local/bin/tesseract  # if needed
 
 # 5. Start MongoDB (Homebrew on macOS)
 brew services start mongodb-community@6.0
 
 # 6. Start Qdrant via Docker
 docker run -p 6333:6333 qdrant/qdrant
+
+# 6.1 Install Tesseract OCR (for scanned PDFs)
+# macOS (Homebrew):
+# brew install tesseract
 
 # 7. Run FastAPI server
 uvicorn backend.main:app --reload
@@ -24,3 +34,6 @@ uvicorn backend.main:app --reload
 curl -X POST "http://127.0.0.1:8000/upload" \
      -F "file=@/path/to/test.pdf" \
      -F "department=Engineering"
+
+# 9. (Optional) Semantic search
+curl "http://127.0.0.1:8000/search?q=project%20plan&k=5"

@@ -5,9 +5,9 @@ def detect_basic_type(file_bytes: bytes, filename: str = "") -> str:
         return "pdf"
     if file_bytes[:2] == b"PK":
         # likely xlsx (zip container) or docx
-        if filename.lower().endswith((".xlsx", ".xls")):
+        if filename.lower().endswith((".xlsx",)):
             return "excel"
-        return "excel"
+        return "unknown"
     # fallback by filename
     if filename.lower().endswith((".xls", ".xlsx")):
         return "excel"
