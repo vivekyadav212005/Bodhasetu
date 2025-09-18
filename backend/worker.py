@@ -9,6 +9,9 @@ from backend.utils.file_type import detect_basic_type
 from backend.storage import save_file
 from backend.extractors.pdf_extractor import extract_pdf as pdf_extract
 from backend.extractors.excel_extractor import extract_excel as excel_extract
+from backend.llm.summarizer import summarize_document, extractive_fallback
+from backend.cca.cca import augment_chunk
+from backend.tasks.background_tasks import enqueue_summary
 
 
 async def process_bytes(file_bytes: bytes, filename: str, department: str, source_meta: dict):
@@ -38,6 +41,8 @@ async def process_bytes(file_bytes: bytes, filename: str, department: str, sourc
     # ---------- 2. Save base doc metadata ----------
     stored = save_file(file_bytes, filename, department, prefix=sha256[:8])
 
+    doc_title = filename
+
     doc_data = {
         "_id": sha256,
         "filename": filename,
@@ -47,6 +52,9 @@ async def process_bytes(file_bytes: bytes, filename: str, department: str, sourc
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow(),
         "hash": sha256,
+        "processing_status": "processing",
+        "summary_status": "pending",
+        "doc_title": doc_title,
     }
     await db.insert_document("documents", doc_data)
 
@@ -76,11 +84,33 @@ async def process_bytes(file_bytes: bytes, filename: str, department: str, sourc
     chunk_models = chunks_meta
 
     # ---------- 5. Generate embeddings ----------
-    texts = [cm["text"] for cm in chunk_models]
-    if texts:
-        vectors = embed_texts(texts)
+    # Generate and store a minimal summary immediately (synchronous, extractive)
+    minimal_text = (extracted_text or "")[:8000]
+    fb = extractive_fallback(minimal_text)
+    await db.upsert_document_summary(sha256, summary=fb["summary"], bullets=fb["bullets"], actionable=fb["actionable"], status="pending")
+
+    # Kick off async LLM summary in the background
+    try:
+        enqueue_summary(sha256, minimal_text, doc_title)
+    except Exception:
+        # As a last resort, compute LLM summary synchronously
+        await summarize_document(sha256, minimal_text, doc_title)
+
+    # Load stored summary (may still be pending)
+    doc_after = await db.get_document_by_id(sha256)
+    doc_summary = (doc_after or {}).get("summary", "")
+
+    # Contextual Chunk Augmentation (CCA)
+    augmented_texts = []
+    for cm in chunk_models:
+        aug, compact = augment_chunk(cm.get("text", ""), doc_summary)
+        cm["compact_context"] = compact
+        augmented_texts.append(aug)
+
+    if augmented_texts:
+        vectors = embed_texts(augmented_texts)
         ensure_collection(vectors.shape[1])
-        upsert_chunks_vectors(sha256, chunk_models, vectors)
+    upsert_chunks_vectors(sha256, chunk_models, vectors, doc_summary=doc_summary, doc_title=doc_title, department=department)
 
     # ---------- 6. Final update ----------
     await db.update_document(
@@ -92,6 +122,7 @@ async def process_bytes(file_bytes: bytes, filename: str, department: str, sourc
             "extraction_meta": page_or_sheet_meta,
             "file_type": file_type,
             "text_char_count": len(extracted_text or ""),
+            "processing_status": "cca_done",
         }
     )
 

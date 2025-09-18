@@ -16,6 +16,9 @@ pip install -r requirements.txt
 # QDRANT_URL=http://localhost:6333
 # EMBED_MODEL=all-MiniLM-L6-v2
 # TESSERACT_CMD=/usr/local/bin/tesseract  # if needed
+# GROQ_API_KEY=sk-...
+# GROQ_API_URL=https://api.groq.com/openai/v1/chat/completions
+# GROQ_MODEL=mixtral-8x7b-32768
 
 # 5. Start MongoDB (Homebrew on macOS)
 brew services start mongodb-community@6.0
@@ -37,3 +40,12 @@ curl -X POST "http://127.0.0.1:8000/upload" \
 
 # 9. (Optional) Semantic search
 curl "http://127.0.0.1:8000/search?q=project%20plan&k=5"
+
+# 10. (Optional) Ask a question with LLM
+curl -X POST "http://127.0.0.1:8000/query" \
+     -H 'Content-Type: application/json' \
+     -d '{"query":"What actions are pending for furniture procurement?","top_k":8}'
+
+# Background summaries
+# Upload remains responsive; summaries are scheduled in the background.
+# Check summary: GET /document/{doc_id}/summary

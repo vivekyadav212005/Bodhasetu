@@ -13,3 +13,4 @@ pandas
 sentence-transformers
 python-dotenv
 tqdm
+httpx

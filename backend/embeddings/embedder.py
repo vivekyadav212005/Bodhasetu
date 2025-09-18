@@ -1,5 +1,7 @@
 # backend/embeddings/embedder.py
 import os
+# Prevent HuggingFace tokenizers fork/parallelism warnings and deadlocks
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 from sentence_transformers import SentenceTransformer
 import numpy as np
 

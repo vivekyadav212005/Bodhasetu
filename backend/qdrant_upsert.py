@@ -14,7 +14,7 @@ def ensure_collection(dim: int):
             vectors_config=rest_models.VectorParams(size=dim, distance=rest_models.Distance.COSINE)
         )
 
-def upsert_chunks_vectors(doc_id: str, chunk_models: list, vectors: np.ndarray):
+def upsert_chunks_vectors(doc_id: str, chunk_models: list, vectors: np.ndarray, doc_summary: str = "", doc_title: str = "", department: str = ""):
     """
     chunk_models: list of dicts aligned with vectors (must contain chunk_index, page_number, start_char, end_char, text)
     vectors: numpy array shape (n, dim)
@@ -28,7 +28,10 @@ def upsert_chunks_vectors(doc_id: str, chunk_models: list, vectors: np.ndarray):
             "page_number": cm.get('page_number'),
             "start_char": cm.get('start_char'),
             "end_char": cm.get('end_char'),
-            "excerpt": (cm.get('text') or "")[:300]
+            "excerpt": (cm.get('text') or "")[:300],
+            "doc_summary": (doc_summary or "")[:1000],
+            "doc_title": doc_title or "",
+            "department": department or cm.get('department') or "",
         }
         points.append(
             rest_models.PointStruct(
