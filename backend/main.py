@@ -26,3 +26,4 @@ def search(q: str, k: int = 5):
     return {"results": search_similar(q, top_k=k)}
 
 app.include_router(api_router)
+

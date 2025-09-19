@@ -38,6 +38,19 @@ async def query(req: QueryRequest):
             "actionable_items": doc.get("actionable", []),
             "sources": [{"doc_id": req.doc_id, "chunk_index": None, "excerpt": "", "page_number": None, "score": None}],
         }
+    if wants_summary and not req.doc_id:
+        # Pick the top document via a quick semantic search and return its summary
+        results = await semantic_search(req.query, top_k=1, filters=filters or None)
+        if results:
+            top = results[0]
+            d = await db.get_document_by_id(top.get("doc_id"))
+            if d:
+                return {
+                    "answer": d.get("summary", ""),
+                    "summary": d.get("summary", ""),
+                    "actionable_items": d.get("actionable", []),
+                    "sources": [{"doc_id": d.get("_id"), "chunk_index": None, "excerpt": "", "page_number": None, "score": top.get("vector_score")}],
+                }
 
     results = await semantic_search(req.query, top_k=req.top_k, filters=filters or None)
     if not results:

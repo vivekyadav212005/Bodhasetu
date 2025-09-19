@@ -1,6 +1,6 @@
 # backend/qdrant_upsert.py
 from qdrant_client.http import models as rest_models
-from uuid import uuid4
+from uuid import uuid4, uuid5, NAMESPACE_URL
 import numpy as np
 from backend.qdrant_conn import qdrant_client, COLLECTION_NAME
 from backend.embeddings.embedder import embed_texts
@@ -14,6 +14,15 @@ def ensure_collection(dim: int):
             vectors_config=rest_models.VectorParams(size=dim, distance=rest_models.Distance.COSINE)
         )
 
+def _stable_point_id(doc_id: str, chunk_index: int) -> str:
+    return str(uuid5(NAMESPACE_URL, f"{doc_id}:{chunk_index}"))
+
+def delete_points_by_doc_id(doc_id: str):
+    filt = rest_models.Filter(must=[
+        rest_models.FieldCondition(key="doc_id", match=rest_models.MatchValue(value=doc_id))
+    ])
+    qdrant_client.delete(collection_name=COLLECTION_NAME, points_selector=rest_models.FilterSelector(filter=filt))
+
 def upsert_chunks_vectors(doc_id: str, chunk_models: list, vectors: np.ndarray, doc_summary: str = "", doc_title: str = "", department: str = ""):
     """
     chunk_models: list of dicts aligned with vectors (must contain chunk_index, page_number, start_char, end_char, text)
@@ -21,7 +30,7 @@ def upsert_chunks_vectors(doc_id: str, chunk_models: list, vectors: np.ndarray, 
     """
     points = []
     for cm, vec in zip(chunk_models, vectors):
-        pid = str(uuid4())  # ✅ generate a proper UUID
+        pid = _stable_point_id(doc_id, int(cm['chunk_index']))
         payload = {
             "doc_id": doc_id,
             "chunk_index": cm['chunk_index'],
