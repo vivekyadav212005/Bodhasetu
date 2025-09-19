@@ -33,7 +33,7 @@ def chunk_text_with_map(text: str, page_number: int = None, chunk_size: int = 10
     return chunks
 
 
-def semantic_chunks(text: str, page_number: Optional[int] = None, target_size: int = 900, overlap: int = 150):
+def semantic_chunks(text: str, page_number: Optional[int] = None, target_size: int = 1200, overlap: Optional[int] = None):
     """
     Paragraph- and sentence-aware chunking. Packs sentences into chunks up to target_size,
     with overlap between neighboring chunks to preserve context.
@@ -41,6 +41,10 @@ def semantic_chunks(text: str, page_number: Optional[int] = None, target_size: i
     """
     if not text:
         return []
+
+    # Default overlap ~25% of target size
+    if overlap is None:
+        overlap = max(100, int(target_size * 0.25))
 
     paras = [p for p in re.split(r"\n\s*\n+", text) if p.strip()]
     sent_split = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9])")
@@ -91,11 +95,12 @@ def semantic_chunks(text: str, page_number: Optional[int] = None, target_size: i
         idx += 1
         if i >= n:
             break
-        # move back to create overlap by characters
-        back_char_target = overlap
-        # find earliest sentence start within overlap from end_char
+        # Move start index back so that next chunk overlaps ~overlap chars
+        # Find the first sentence whose start is within `overlap` chars from end_char
         j = i - 1
-        while j >= 0 and (end_char - sentences[j][1]) < back_char_target:
+        target_start = end_char - overlap
+        while j > 0 and sentences[j][1] > target_start:
             j -= 1
-        i = max(j + 1, i)
+        # Set i to this sentence index to begin overlap window, but ensure forward progress
+        i = max(j, start_i + 1)
     return chunks

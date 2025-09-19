@@ -5,7 +5,7 @@ from qdrant_client.http import models as rest_models
 from backend import db
 
 
-async def semantic_search(query: str, top_k: int = 8, filters: Optional[dict] = None) -> List[Dict]:
+async def semantic_search(query: str, top_k: int = 8, filters: Optional[dict] = None, neighbor_window: int = 1) -> List[Dict]:
     vec = embed_texts([query])[0]
     qkwargs = {
         "collection_name": COLLECTION_NAME,
@@ -45,4 +45,53 @@ async def semantic_search(query: str, top_k: int = 8, filters: Optional[dict] = 
             "end_char": p.get("end_char") if p.get("end_char") is not None else (chunk_doc or {}).get("end_char"),
             "text": (chunk_doc or {}).get("text", ""),
         })
+    # Expand with neighboring chunks around each result
+    if neighbor_window and out:
+        wants = []
+        for hit in out:
+            if hit.get("doc_id") is None or hit.get("chunk_index") is None:
+                continue
+            base_idx = hit["chunk_index"]
+            for delta in range(-neighbor_window, neighbor_window + 1):
+                if delta == 0:
+                    continue
+                wants.append({"doc_id": hit["doc_id"], "chunk_index": base_idx + delta})
+        if wants:
+            cursor = db.db["chunks"].find({
+                "$or": [{"doc_id": w["doc_id"], "chunk_index": w["chunk_index"]} for w in wants]
+            })
+            neighbors = await cursor.to_list(length=None)
+            # Index by (doc_id, chunk_index)
+            nmap = {(c["doc_id"], c["chunk_index"]): c for c in neighbors}
+            for hit in list(out):
+                d = hit.get("doc_id")
+                ci = hit.get("chunk_index")
+                for delta in range(-neighbor_window, neighbor_window + 1):
+                    if delta == 0:
+                        continue
+                    key = (d, (ci or 0) + delta)
+                    nb = nmap.get(key)
+                    if not nb:
+                        continue
+                    out.append({
+                        "vector_score": hit.get("vector_score"),  # inherit parent's score for ordering
+                        "doc_id": d,
+                        "chunk_index": nb.get("chunk_index"),
+                        "page_number": nb.get("page_number"),
+                        "excerpt": nb.get("text", "")[:300],
+                        "doc_summary": hit.get("doc_summary"),
+                        "doc_title": hit.get("doc_title"),
+                        "start_char": nb.get("start_char"),
+                        "end_char": nb.get("end_char"),
+                        "text": nb.get("text", ""),
+                    })
+        # Deduplicate by (doc_id, chunk_index)
+        dedup = {}
+        for item in out:
+            key = (item.get("doc_id"), item.get("chunk_index"))
+            dedup[key] = item
+        out = list(dedup.values())
+        # Keep top_k hits (including neighbors) by vector_score desc
+        out.sort(key=lambda x: (x.get("vector_score") or 0), reverse=True)
+        out = out[: max(top_k, len(out))]
     return out

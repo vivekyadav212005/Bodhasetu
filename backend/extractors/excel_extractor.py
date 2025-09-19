@@ -51,7 +51,7 @@ def extract_excel(file_bytes: bytes):
             sheet_text = sheet_text + "\n" + "\n".join(chart_titles)
 
         # chunk per sheet
-        chunks = semantic_chunks(sheet_text, page_number=sheet_name, target_size=900, overlap=150)
+        chunks = semantic_chunks(sheet_text, page_number=sheet_name, target_size=1200)
         for c in chunks:
             c["chunk_index"] = chunk_idx
             chunk_idx += 1

@@ -49,7 +49,7 @@ def extract_pdf(file_bytes: bytes):
         labels = extract_drawing_labels(combined_text)
 
         # semantic chunks for this page
-        page_chunks = semantic_chunks(combined_text, page_number=page_num, target_size=900, overlap=150)
+        page_chunks = semantic_chunks(combined_text, page_number=page_num, target_size=1200)
         for c in page_chunks:
             c["chunk_index"] = chunk_idx
             chunk_idx += 1

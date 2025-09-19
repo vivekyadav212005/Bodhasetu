@@ -20,10 +20,14 @@ def document_summary_prompt(raw_text: str, doc_title: str, max_chars: int = 1600
 
 def qa_prompt(query: str, context_chunks: List[Dict]) -> str:
     # context_chunks: each has doc_id, chunk_index, page_number, excerpt, doc_summary
+    # Light query clarification for better interpretation
+    clarified = query.strip()
     lines = [
         "You are an expert assistant. Use the provided context to answer the question.",
-        "Respond concisely. Output strictly JSON with keys: answer, summary, actionable_items (array), sources (array of {doc_id, chunk_index, excerpt, page_number, score}).",
-        "If information is insufficient, say so explicitly.",
+        "- If the question is ambiguous, infer likely intent but state any assumptions.",
+        "- Prefer quoting exact figures, dates, and names from context.",
+        "- Output strictly JSON with keys: answer, summary, actionable_items (array), sources (array of {doc_id, chunk_index, excerpt, page_number, score}).",
+        "- sources must be concise human-readable: excerpt should be a short snippet.",
         "Context:",
     ]
     for c in context_chunks:
@@ -31,7 +35,7 @@ def qa_prompt(query: str, context_chunks: List[Dict]) -> str:
             f"- doc_id={c.get('doc_id')}, chunk_index={c.get('chunk_index')}, page={c.get('page_number')}, score={c.get('vector_score')}; "
             f"doc_summary={c.get('doc_summary','')[:200]}; excerpt={c.get('excerpt','')[:300]}"
         )
-    lines.append(f"\nQuestion: {query}")
+    lines.append(f"\nQuestion: {clarified}")
     lines.append(
         "Return JSON only. Example: {\"answer\":\"...\",\"summary\":\"...\",\"actionable_items\":[\"...\"],\"sources\":[{\"doc_id\":\"...\",\"chunk_index\":0,\"excerpt\":\"...\",\"page_number\":1,\"score\":0.91}]}"
     )
