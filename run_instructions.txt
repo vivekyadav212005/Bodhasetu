@@ -1,3 +1,17 @@
+Frontend (Vite + React + Tailwind)
+1) In a new terminal:
+     cd frontend
+     npm install
+     VITE_API_URL="http://localhost:8000" npm run dev
+
+Backend (FastAPI)
+1) In project root:
+     source myenv/bin/activate
+     uvicorn backend.main:app --reload --port 8000
+
+Notes
+- Ensure MongoDB and Qdrant are running and accessible.
+- CORS is enabled for localhost dev ports 5173/3000.
 # 1. Clone repo
 git clone git@github.com:<your-username>/Bodhasetu.git
 cd Bodhasetu
