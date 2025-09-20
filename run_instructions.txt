@@ -12,6 +12,14 @@ Backend (FastAPI)
 Notes
 - Ensure MongoDB and Qdrant are running and accessible.
 - CORS is enabled for localhost dev ports 5173/3000.
+- To enable email fetching, set these in .env:
+     ORG_DOMAIN=kmrl.org
+     EMAIL_ALLOWED_DOMAINS=kmrl.org
+     EMAIL_HOST=imap.example.com
+     EMAIL_PORT=993
+     EMAIL_USER=your-user@example.com
+     EMAIL_PASS=your-password
+     EMAIL_FOLDER=INBOX
 # 1. Clone repo
 git clone git@github.com:<your-username>/Bodhasetu.git
 cd Bodhasetu

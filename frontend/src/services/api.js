@@ -39,3 +39,24 @@ export async function askQuery({ query, top_k = 8, doc_id, department }) {
 	const { data } = await api.post('/query', payload)
 	return data
 }
+
+// Email ingestion APIs
+export async function getEmailLogs() {
+	const { data } = await api.get('/emails/logs')
+	return data
+}
+
+export async function fetchEmailsNow() {
+	const { data } = await api.post('/emails/fetch')
+	return data
+}
+
+export async function approveEmail(logId) {
+	const { data } = await api.post(`/emails/approve/${logId}`)
+	return data
+}
+
+export async function rejectEmail(logId) {
+	const { data } = await api.post(`/emails/reject/${logId}`)
+	return data
+}

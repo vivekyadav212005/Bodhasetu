@@ -6,6 +6,8 @@ from backend.worker import process_bytes
 from backend.db import ensure_indexes, db
 from backend.qdrant_upsert import search_similar
 from backend.api.endpoints import router as api_router
+from backend.routers.email_routes import router as email_router
+from backend.email_scheduler import start_scheduler
 
 app = FastAPI(title="Bodhasetu Prototype API")
 
@@ -27,6 +29,12 @@ app.add_middleware(
 @app.on_event("startup")
 async def on_start():
     await ensure_indexes()
+    # Start periodic email fetcher (every 2 hours)
+    try:
+        start_scheduler()
+    except Exception:
+        # Scheduler optional in some environments
+        pass
 
 @app.post("/upload")
 async def upload(file: UploadFile = File(...), department: str = Form("General")):
@@ -43,6 +51,7 @@ def search(q: str, k: int = 5):
     return {"results": search_similar(q, top_k=k)}
 
 app.include_router(api_router)
+app.include_router(email_router)
 
 
 @app.get("/documents")

@@ -52,6 +52,8 @@ async def ensure_indexes():
     await db["documents"].create_index("summary_status")
     await db["chunks"].create_index([("doc_id", 1), ("chunk_index", 1)], unique=True)
     await db["chunks"].create_index("page_number")
+    await db["email_logs"].create_index("status")
+    await db["email_logs"].create_index("created_at")
 
 async def upsert_document_summary(doc_id: str, summary: str = "", bullets: Optional[List[str]] = None, actionable: Optional[List[str]] = None, status: str = "done"):
     from datetime import datetime
