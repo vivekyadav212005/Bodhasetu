@@ -1,10 +1,13 @@
 import React, { useState } from 'react'
 import { askQuery } from '../services/api'
+import { useAppStore } from '../store/useAppStore'
 
-export default function QueryBox({ docId, onAnswered }) {
+export default function QueryBox({ docId }) {
 	const [q, setQ] = useState('')
 	const [busy, setBusy] = useState(false)
 	const [error, setError] = useState('')
+  const addQuery = useAppStore(s => s.addQuery)
+  const addAnswer = useAppStore(s => s.addAnswer)
 
 	const submit = async (e) => {
 		e.preventDefault()
@@ -12,8 +15,9 @@ export default function QueryBox({ docId, onAnswered }) {
 		setBusy(true)
 		setError('')
 		try {
+			addQuery(q)
 			const data = await askQuery({ query: q, doc_id: docId })
-			onAnswered?.(data)
+			addAnswer(data)
 		} catch (e) {
 			setError(`Query failed: ${e.message}`)
 		} finally {

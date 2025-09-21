@@ -56,9 +56,10 @@ async def approve_email(log_id: str):
         "sender": rec.get("sender"),
         "subject": rec.get("subject"),
         "email_date": rec.get("date"),
-    })
-    await db.db["email_logs"].update_one({"_id": rec["_id"]}, {"$set": {"status": "approved", "updated_at": datetime.utcnow(), "document_id": res.get("document_id")}})
-    return {"status": "approved", "document_id": res.get("document_id")}
+    }, summarize_sync=True)
+    doc_id = res.get("doc_id") or res.get("document_id")
+    await db.db["email_logs"].update_one({"_id": rec["_id"]}, {"$set": {"status": "approved", "updated_at": datetime.utcnow(), "document_id": doc_id}})
+    return {"status": "approved", "document_id": doc_id}
 
 
 @router.post("/reject/{log_id}")

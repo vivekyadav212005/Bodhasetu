@@ -68,7 +68,7 @@ async def list_documents(
     async for d in cursor:
         docs.append({
             "_id": str(d.get("_id")),
-            "filename": d.get("original_filename"),
+            "filename": d.get("filename") or d.get("original_filename"),
             "stored_path": d.get("stored_path"),
             "department": d.get("department"),
             "created_at": d.get("created_at"),

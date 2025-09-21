@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import UploadBox from '../components/UploadBox'
 import QueryBox from '../components/QueryBox'
 import AnswerBox from '../components/AnswerBox'
 import { getDocuments } from '../services/api'
+import { useAppStore } from '../store/useAppStore'
 
 export default function Home() {
-	const [answer, setAnswer] = useState(null)
+	const answers = useAppStore(s => s.answers)
 	const [docMap, setDocMap] = useState({})
 	useEffect(()=>{
 		getDocuments().then(res => {
@@ -14,11 +15,12 @@ export default function Home() {
 			setDocMap(map)
 		}).catch(()=>{})
 	}, [])
+	const lastAnswer = useMemo(()=> answers.length ? answers[answers.length-1].data : null, [answers])
 	return (
 		<div className="space-y-4">
 			<UploadBox />
-			<QueryBox onAnswered={setAnswer} />
-			<AnswerBox data={answer} docMap={docMap} />
+			<QueryBox />
+			<AnswerBox data={lastAnswer} docMap={docMap} />
 		</div>
 	)
 }

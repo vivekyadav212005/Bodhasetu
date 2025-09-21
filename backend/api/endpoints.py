@@ -36,7 +36,12 @@ async def query(req: QueryRequest):
             "answer": doc.get("summary", ""),
             "summary": doc.get("summary", ""),
             "actionable_items": doc.get("actionable", []),
-            "sources": [{"doc_id": req.doc_id, "chunk_index": None, "excerpt": "", "page_number": None, "score": None}],
+            "sources": [{
+                "doc_id": req.doc_id,
+                "doc_title": doc.get("doc_title"),
+                "filename": doc.get("filename") or doc.get("original_filename"),
+                "chunk_index": None, "excerpt": "", "page_number": None, "score": None
+            }],
         }
     if wants_summary and not req.doc_id:
         # Pick the top document via a quick semantic search and return its summary
@@ -49,7 +54,12 @@ async def query(req: QueryRequest):
                     "answer": d.get("summary", ""),
                     "summary": d.get("summary", ""),
                     "actionable_items": d.get("actionable", []),
-                    "sources": [{"doc_id": d.get("_id"), "chunk_index": None, "excerpt": "", "page_number": None, "score": top.get("vector_score")}],
+                    "sources": [{
+                        "doc_id": d.get("_id"),
+                        "doc_title": d.get("doc_title"),
+                        "filename": d.get("filename") or d.get("original_filename"),
+                        "chunk_index": None, "excerpt": "", "page_number": None, "score": top.get("vector_score")
+                    }],
                 }
 
     results = await semantic_search(req.query, top_k=req.top_k, filters=filters or None)
@@ -58,19 +68,56 @@ async def query(req: QueryRequest):
 
     context = results
     prompt = qa_prompt(req.query, context)
-    llm = await call_groq(prompt, max_tokens=700, temperature=0.0)
-    text = (llm or {}).get("text", "{}").strip()
+    llm = None
+    try:
+        llm = await call_groq(prompt, max_tokens=1200, temperature=0.1)
+        text = (llm or {}).get("text", "{}").strip()
+    except Exception:
+        text = "{}"
     import json
     try:
         data = json.loads(text)
     except Exception:
-        data = {"answer": text, "summary": "", "actionable_items": [], "sources": []}
+        data = {}
+
+    # Fallback: if model failed or returned empty/invalid, synthesize a structured answer from context
+    if not isinstance(data, dict) or not data.get("answer"):
+        top = context[:5]
+        answer_parts = ["Based on retrieved content, here are the most relevant details."]
+        details = []
+        for c in top:
+            excerpt = (c.get("excerpt") or "").strip()
+            if excerpt:
+                details.append(f"- p.{c.get('page_number') or '-'}: {excerpt[:240]}")
+        if details:
+            answer_parts.append("\nKey details:\n" + "\n".join(details))
+        answer_parts.append("\nContext & Rationale: The answer is composed from the top-matching document snippets. For a deeper dive, ask a follow-up question.")
+        data = {
+            "answer": "\n\n".join(answer_parts),
+            "summary": "High-level synthesis from top retrieved context.",
+            "actionable_items": [],
+            "sources": [],
+        }
 
     # enforce and enrich sources with traceability
     sources = []
+    # Prepare doc metadata map for nicer source labels
+    doc_ids = list({c.get("doc_id") for c in context if c.get("doc_id")})
+    doc_meta = {}
+    for did in doc_ids:
+        try:
+            d = await db.get_document_by_id(did)
+            if d:
+                doc_meta[did] = {"doc_title": d.get("doc_title"), "filename": d.get("filename") or d.get("original_filename")}
+        except Exception:
+            pass
     for c in context:
+        did = c.get("doc_id")
+        meta = doc_meta.get(did, {})
         sources.append({
-            "doc_id": c.get("doc_id"),
+            "doc_id": did,
+            "doc_title": meta.get("doc_title"),
+            "filename": meta.get("filename"),
             "chunk_index": c.get("chunk_index"),
             "excerpt": c.get("excerpt"),
             "page_number": c.get("page_number"),
@@ -78,7 +125,36 @@ async def query(req: QueryRequest):
             "start_char": c.get("start_char"),
             "end_char": c.get("end_char"),
         })
-    data.setdefault("sources", sources)
+    # Merge model-provided sources (if any) with enriched sources from context for consistent metadata
+    model_sources = data.get("sources")
+    if isinstance(model_sources, list) and model_sources:
+        # Build a quick index by (doc_id, chunk_index)
+        def keyer(s):
+            return (s.get("doc_id"), s.get("chunk_index"))
+        idx = {keyer(s): s for s in sources}
+        merged = []
+        for s in model_sources:
+            k = keyer(s)
+            enrich = idx.get(k) or next((x for x in sources if x.get("doc_id") == s.get("doc_id")), None)
+            if enrich:
+                m = {**enrich, **s}
+            else:
+                m = s
+            # Ensure human-friendly fields present
+            if not m.get("doc_title") or not m.get("filename"):
+                meta = next((x for x in sources if x.get("doc_id") == m.get("doc_id")), None)
+                if meta:
+                    m.setdefault("doc_title", meta.get("doc_title"))
+                    m.setdefault("filename", meta.get("filename"))
+            merged.append(m)
+        data["sources"] = merged
+    else:
+        data["sources"] = sources
+    # Ensure required keys exist for contract stability
+    data.setdefault("summary", "")
+    data.setdefault("actionable_items", [])
+    if not isinstance(data.get("actionable_items"), list):
+        data["actionable_items"] = []
     return data
 
 

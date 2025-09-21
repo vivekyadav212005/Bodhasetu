@@ -14,7 +14,7 @@ from backend.cca.cca import augment_chunk
 from backend.tasks.background_tasks import enqueue_summary
 
 
-async def process_bytes(file_bytes: bytes, filename: str, department: str, source_meta: dict):
+async def process_bytes(file_bytes: bytes, filename: str, department: str, source_meta: dict, summarize_sync: bool = False):
     """
     Full pipeline:
     1. Hash file -> dedup check
@@ -89,12 +89,16 @@ async def process_bytes(file_bytes: bytes, filename: str, department: str, sourc
     fb = extractive_fallback(minimal_text)
     await db.upsert_document_summary(sha256, summary=fb["summary"], bullets=fb["bullets"], actionable=fb["actionable"], status="pending")
 
-    # Kick off async LLM summary in the background
-    try:
-        enqueue_summary(sha256, minimal_text, doc_title)
-    except Exception:
-        # As a last resort, compute LLM summary synchronously
+    # Kick off LLM summary
+    if summarize_sync:
+        # Generate full summary synchronously to ensure actionable items immediately
         await summarize_document(sha256, minimal_text, doc_title)
+    else:
+        # Prefer background task; fall back to sync if scheduling fails
+        try:
+            enqueue_summary(sha256, minimal_text, doc_title)
+        except Exception:
+            await summarize_document(sha256, minimal_text, doc_title)
 
     # Load stored summary (may still be pending)
     doc_after = await db.get_document_by_id(sha256)

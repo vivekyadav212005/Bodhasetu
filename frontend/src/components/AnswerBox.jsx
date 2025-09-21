@@ -50,7 +50,7 @@ export default function AnswerBox({ data, docMap }) {
 					<div className="grid gap-3">
 						{data.sources.map((s, i) => {
 							const meta = docMap?.[s.doc_id]
-							const name = meta?.doc_title || meta?.filename || s.doc_id
+							const name = s.doc_title || s.filename || meta?.doc_title || meta?.filename || s.doc_id
 							return <SourceItem key={i} s={{...s, doc_name: name}} />
 						})}
 					</div>
